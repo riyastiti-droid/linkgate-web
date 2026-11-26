@@ -1,0 +1,2641 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinkGate — Fast AdLink Relay, Cloudflare Shield &amp; Decoder</title>
+
+  <!-- Custom Inline SVG Favicon (Original LinkGate Portal Emblem) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2310b981'/%3E%3Cstop offset='55%25' stop-color='%2306b6d4'/%3E%3Cstop offset='100%25' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%23090d16'/%3E%3Cpath d='M32 8L53 20v24L32 56 11 44V20L32 8z' fill='none' stroke='url(%23g)' stroke-width='4.5' stroke-linejoin='round'/%3E%3Cpath d='M22 36l10-16v10h10L32 46V36H22z' fill='url(%23g)'/%3E%3C/svg%3E" />
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Cloudflare Turnstile Explicit API -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          colors: {
+            brand: {
+              emerald: '#10b981',
+              cyan: '#06b6d4',
+              indigo: '#6366f1',
+              amber: '#f59e0b',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Custom Keyframes, Mesh Gradients & Micro-Animations -->
+  <style>
+    @keyframes blobFloat1 {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(42px, -48px) scale(1.1); }
+      66% { transform: translate(-28px, 32px) scale(0.95); }
+    }
+    @keyframes blobFloat2 {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(-45px, 38px) scale(1.08); }
+      66% { transform: translate(35px, -30px) scale(0.93); }
+    }
+    @keyframes blobFloat3 {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      50% { transform: translate(26px, 44px) scale(1.12); }
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(12px) scale(0.95); }
+    }
+    @keyframes pulseRing {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+      50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    }
+    @keyframes goldGlow {
+      0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.35); }
+      50% { box-shadow: 0 0 22px rgba(250, 204, 21, 0.65); }
+    }
+    @keyframes connectorPulse {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+
+    .animate-blob-1 { animation: blobFloat1 16s ease-in-out infinite; }
+    .animate-blob-2 { animation: blobFloat2 20s ease-in-out infinite; }
+    .animate-blob-3 { animation: blobFloat3 18s ease-in-out infinite; }
+    .animate-gradient {
+      background-size: 200% 200%;
+      animation: gradientShift 6s ease infinite;
+    }
+    .animate-pulse-ring { animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .animate-gold-glow { animation: goldGlow 2.4s ease-in-out infinite; }
+    .toast-enter { animation: toastIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .toast-exit { animation: toastOut 0.22s ease forwards; }
+
+    /* Glowing Gradient Border Card */
+    .glow-border {
+      position: relative;
+    }
+    .glow-border::before {
+      content: "";
+      position: absolute;
+      inset: -1.5px;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: linear-gradient(135deg, #10b981, #06b6d4, #6366f1, #14b8a6);
+      background-size: 250% 250%;
+      animation: gradientShift 8s ease infinite;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: 0.72;
+    }
+    html:not(.dark) .glow-border::before {
+      opacity: 0.55;
+    }
+
+    /* Animated Stage Connector */
+    .stage-connector-fill {
+      transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .stage-connector-shimmer::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: 50%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+      animation: connectorPulse 1.5s linear infinite;
+    }
+
+    /* Smooth Accordion Transition */
+    .accordion-content {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .accordion-content[data-open="true"] {
+      grid-template-rows: 1fr;
+    }
+    .accordion-inner {
+      overflow: hidden;
+    }
+
+    /* Smooth Ad Slot Hide Transition when VIP Active */
+    .ad-slot-container {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .ad-slot-container.vip-hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-200 bg-slate-50 text-slate-900 dark:bg-[#060911] dark:text-slate-100 transition-colors duration-300 overflow-x-hidden">
+
+  <!-- Animated Mesh Gradient Background -->
+  <div aria-hidden="true" class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div class="absolute -top-32 -left-24 w-[28rem] h-[28rem] rounded-full bg-emerald-600/20 blur-[115px] animate-blob-1"></div>
+    <div class="absolute top-1/4 -right-28 w-[30rem] h-[30rem] rounded-full bg-cyan-500/20 blur-[120px] animate-blob-2"></div>
+    <div class="absolute -bottom-32 left-1/3 w-[28rem] h-[28rem] rounded-full bg-indigo-500/20 blur-[120px] animate-blob-3"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(#10b98118_1px,transparent_1px)] dark:bg-[radial-gradient(#ffffff0c_1px,transparent_1px)] [background-size:24px_24px]"></div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- TOP NAVIGATION BAR                                                    -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-[#090d16]/80 border-b border-slate-200/80 dark:border-white/10">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3">
+      <!-- Original Brand Logo (Custom Hexagonal Portal SVG) -->
+      <a href="#top" id="brandHomeBtn" class="flex items-center gap-2.5 sm:gap-3 group focus:outline-none min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-slate-950 p-1.5 shadow-lg shadow-emerald-500/20 border border-emerald-500/35 group-hover:scale-105 group-hover:border-cyan-400/60 transition-all shrink-0 flex items-center justify-center">
+          <svg class="w-full h-full" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="lgLogoGrad" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#10b981" />
+                <stop offset="55%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#6366f1" />
+              </linearGradient>
+            </defs>
+            <!-- Split Hexagonal Gate -->
+            <path d="M24 4L41 13.8V34.2L24 44L7 34.2V13.8L24 4Z" stroke="url(#lgLogoGrad)" stroke-width="3.2" stroke-linejoin="round" />
+            <!-- Inner Kinetic Bolt / Portal Cut -->
+            <path d="M16.5 26.5L25.5 13.5V22H32.5L23.5 35V26.5H16.5Z" fill="url(#lgLogoGrad)" />
+          </svg>
+        </div>
+        <div class="leading-tight truncate">
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">Link<span class="text-emerald-500 dark:text-emerald-400">Gate</span></span>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">v5.1</span>
+          </div>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">AdLink Relay &amp; Cloudflare Shield</p>
+        </div>
+      </a>
+
+      <!-- Right Controls: Theme Switcher & VIP Mode Button -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- Theme Toggle Button -->
+        <button id="themeToggleBtn" type="button" title="Switch Theme (Dark / Light / System)"
+          class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200/80 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 transition-all active:scale-95">
+          <span id="themeIcon" class="w-4 h-4 flex items-center justify-center"></span>
+          <span id="themeLabel" class="hidden md:inline">Dark</span>
+        </button>
+
+        <!-- VIP Button -->
+        <button id="openVipModalBtn" type="button"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 hover:brightness-110 text-slate-950 shadow-md shadow-amber-500/25">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span id="vipBtnText">VIP Access</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN CONTAINER                                                        -->
+  <!-- ===================================================================== -->
+  <main id="top" class="max-w-5xl mx-auto px-4 sm:px-6 pt-7 pb-20">
+
+    <!-- Hero Title Section -->
+    <section class="text-center max-w-2xl mx-auto mb-7">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold mb-4 bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm backdrop-blur-md">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-slate-600 dark:text-slate-300">Protected by <strong class="text-amber-600 dark:text-amber-400">Cloudflare Turnstile</strong> • Build <strong class="font-mono text-emerald-600 dark:text-emerald-400">US 5.1.0</strong></span>
+      </div>
+      <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+        Bypass AdLinks
+        <span class="bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent animate-gradient">Fast, Safe &amp; Clean</span>
+      </h1>
+      <p class="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
+        Paste links from Linkvertise, LootLabs, Work.ink, Cuty.io, or Sub2Unlock. Pass one-click Cloudflare verification and get your destination URL in seconds.
+      </p>
+    </section>
+
+    <!-- Navigation Tabs (4 Tabs) -->
+    <div class="flex justify-center mb-6">
+      <nav role="tablist" aria-label="Main Menu" class="inline-flex flex-wrap justify-center gap-1.5 p-1.5 rounded-2xl bg-white/80 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 backdrop-blur-xl shadow-sm">
+        <button role="tab" data-tab="bypass" aria-selected="true"
+          class="tab-btn px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          <span>Main Bypass</span>
+        </button>
+        <button role="tab" data-tab="decoder" aria-selected="false"
+          class="tab-btn px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          <span>LootLabs Decoder</span>
+        </button>
+        <button role="tab" data-tab="domains" aria-selected="false"
+          class="tab-btn px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span>Supported Domains</span>
+          <span id="domainCountBadge" class="px-1.5 py-0.5 text-[10px] rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono">0</span>
+        </button>
+        <button role="tab" data-tab="settings" aria-selected="false"
+          class="tab-btn px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          <span>History &amp; Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: MAIN BYPASS + AD SLOTS + VIP UPGRADE                         -->
+    <!-- =================================================================== -->
+    <div id="tab-bypass" class="tab-panel space-y-6">
+
+      <!-- ================================================================= -->
+      <!-- AD SLOT 1: TOP LEADERBOARD BANNER (728x90 Desktop / 320x50 Mobile)-->
+      <!-- ================================================================= -->
+      <div class="ad-slot-container rounded-2xl bg-white/75 dark:bg-[#0e1320]/75 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 p-3 shadow-sm">
+        <div class="flex items-center justify-between gap-2 mb-2 px-1">
+          <span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            Advertisement
+          </span>
+          <button type="button" class="open-vip-trigger text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
+            Remove Ads (VIP) →
+          </button>
+        </div>
+
+        <!-- PASTE YOUR ADSTERRA / MONETAG / A-ADS BANNER SCRIPT HERE (728x90 / 320x50) -->
+        <div class="mx-auto w-full max-w-[728px] min-h-[60px] sm:min-h-[90px] rounded-xl border border-dashed border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 via-cyan-500/5 to-indigo-500/5 flex flex-col sm:flex-row items-center justify-center gap-2 px-4 py-3 text-center">
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">728×90 / 320×50</span>
+          <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            Top Leaderboard Ad Slot — Paste your <span class="text-emerald-600 dark:text-emerald-400 font-bold">Adsterra / Monetag / A-Ads</span> banner script here
+          </p>
+        </div>
+        <!-- END TOP AD SLOT -->
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- MAIN HERO BYPASS CARD                                             -->
+      <!-- ================================================================= -->
+      <section class="glow-border rounded-3xl bg-white/85 dark:bg-[#0f1422]/85 backdrop-blur-2xl shadow-2xl shadow-emerald-950/10 dark:shadow-black/50 p-5 sm:p-8">
+
+        <!-- Card Top Status Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Provider:</span>
+            <span id="providerBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 transition-all">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span>Waiting for URL...</span>
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+            <!-- Daily Quota Pill -->
+            <span id="dailyQuotaPill" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono font-bold">
+              2 / 2 Free Left Today
+            </span>
+            <span id="captchaStatusPill" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Cloudflare Captcha: On</span>
+            </span>
+            <span id="waitTimeBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 font-mono">
+              ⏱ 10s
+            </span>
+          </div>
+        </div>
+
+        <!-- URL Input Form -->
+        <form id="bypassForm" class="space-y-4">
+          <div class="relative flex flex-col sm:flex-row gap-2.5">
+            <div class="relative flex-1">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              </div>
+              <input id="urlInput" type="url" autocomplete="off" spellcheck="false"
+                placeholder="Paste your AdLink here (e.g. https://linkvertise.com/... or https://work.ink/...)"
+                class="w-full pl-11 pr-24 py-4 rounded-2xl text-sm sm:text-base font-medium bg-slate-100/90 dark:bg-black/40 border border-slate-200 dark:border-white/15 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:border-emerald-500 transition-all" />
+
+              <!-- Inline Paste & Clear Buttons -->
+              <div class="absolute inset-y-0 right-2 flex items-center gap-1">
+                <button id="clearUrlBtn" type="button" title="Clear URL"
+                  class="hidden p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+                <button id="pasteUrlBtn" type="button" title="Paste from Clipboard"
+                  class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-white/10 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-white/10 shadow-sm transition-all active:scale-95">
+                  Paste
+                </button>
+              </div>
+            </div>
+
+            <!-- Main Submit Button -->
+            <button id="startBypassBtn" type="submit"
+              class="px-6 py-4 rounded-2xl text-sm sm:text-base font-extrabold text-white bg-gradient-to-r from-emerald-600 via-cyan-600 to-indigo-600 hover:brightness-110 shadow-lg shadow-emerald-600/30 animate-gradient flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              <span>Bypass Now</span>
+            </button>
+          </div>
+
+          <!-- Quick Test Sample Chips -->
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="text-slate-500 dark:text-slate-400 font-medium">Quick test:</span>
+            <button type="button" data-sample="https://linkvertise.com/12345/latest-script" class="sample-btn px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/25 font-semibold transition-colors">Linkvertise</button>
+            <button type="button" data-sample="https://loot-link.com/s?demo8821" class="sample-btn px-2.5 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-500/25 font-semibold transition-colors">LootLabs</button>
+            <button type="button" data-sample="https://work.ink/1ABC/premium-mod" class="sample-btn px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/25 font-semibold transition-colors">Work.ink</button>
+            <button type="button" data-sample="https://cuty.io/sample-file" class="sample-btn px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 font-semibold transition-colors">Cuty.io</button>
+            <button type="button" data-sample="https://rekonise.com/free-unlock" class="sample-btn px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 font-semibold transition-colors">Rekonise</button>
+          </div>
+        </form>
+
+        <!-- Smart Notice for Special Providers (Work.ink / LootLabs) -->
+        <div id="providerNotice" class="hidden mt-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="text-xs sm:text-sm leading-relaxed">
+            <p id="providerNoticeTitle" class="font-bold text-amber-800 dark:text-amber-200">Provider Info</p>
+            <p id="providerNoticeBody" class="mt-0.5 text-amber-700/90 dark:text-amber-300/85"></p>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- 4-STAGE BYPASS EXECUTION PANEL (POST-CAPTCHA)                   -->
+        <!-- =============================================================== -->
+        <div id="taskPanel" class="hidden mt-6 pt-6 border-t border-slate-200 dark:border-white/10 space-y-5">
+
+          <!-- Header & Elapsed Timer -->
+          <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>LinkGate Relay Execution</span>
+            </span>
+            <span id="elapsedCounter" class="font-mono font-bold text-emerald-600 dark:text-emerald-400">0s elapsed</span>
+          </div>
+
+          <!-- 4-Stage Visual Stepper with Animated Connectors -->
+          <div class="py-2">
+            <div class="flex items-start justify-between">
+              <!-- Stage 1 -->
+              <div data-stage="connect" class="stage-item flex flex-col items-center gap-2 w-16 sm:w-20 shrink-0">
+                <div class="stage-dot w-9 h-9 rounded-xl border-2 border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xs font-extrabold transition-all">1</div>
+                <span class="stage-label text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">Prepare</span>
+              </div>
+
+              <!-- Connector 1 -> 2 -->
+              <div class="flex-1 h-1.5 mt-4 mx-1 sm:mx-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden relative">
+                <div id="connector-0" class="stage-connector-fill relative h-full w-0 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500"></div>
+              </div>
+
+              <!-- Stage 2 -->
+              <div data-stage="verify" class="stage-item flex flex-col items-center gap-2 w-16 sm:w-20 shrink-0">
+                <div class="stage-dot w-9 h-9 rounded-xl border-2 border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xs font-extrabold transition-all">2</div>
+                <span class="stage-label text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">Verify</span>
+              </div>
+
+              <!-- Connector 2 -> 3 -->
+              <div class="flex-1 h-1.5 mt-4 mx-1 sm:mx-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden relative">
+                <div id="connector-1" class="stage-connector-fill relative h-full w-0 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500"></div>
+              </div>
+
+              <!-- Stage 3 -->
+              <div data-stage="tasks" class="stage-item flex flex-col items-center gap-2 w-16 sm:w-20 shrink-0">
+                <div class="stage-dot w-9 h-9 rounded-xl border-2 border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xs font-extrabold transition-all">3</div>
+                <span class="stage-label text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">Process</span>
+              </div>
+
+              <!-- Connector 3 -> 4 -->
+              <div class="flex-1 h-1.5 mt-4 mx-1 sm:mx-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden relative">
+                <div id="connector-2" class="stage-connector-fill relative h-full w-0 rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400"></div>
+              </div>
+
+              <!-- Stage 4 -->
+              <div data-stage="destination" class="stage-item flex flex-col items-center gap-2 w-16 sm:w-20 shrink-0">
+                <div class="stage-dot w-9 h-9 rounded-xl border-2 border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xs font-extrabold transition-all">4</div>
+                <span class="stage-label text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 text-center">Ready</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div id="statusBanner" class="p-4 sm:p-5 rounded-2xl border-l-4 border-emerald-500 bg-slate-100/90 dark:bg-white/[0.04] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
+            <div class="flex items-start gap-3.5">
+              <div id="statusIconBox" class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              </div>
+              <div class="min-w-0">
+                <h2 id="statusTitle" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Preparing link...</h2>
+                <p id="statusMessage" class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5 break-words">Please wait a moment.</p>
+              </div>
+            </div>
+
+            <!-- VIP Upgrade Nudge during Countdown (No free skip loophole) -->
+            <div id="countdownActions" class="hidden shrink-0">
+              <button type="button" class="open-vip-trigger w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/35 transition-all active:scale-95">
+                ★ Instant 0s with VIP
+              </button>
+            </div>
+          </div>
+
+          <!-- AD SLOT 2B: HIGH-VIEWABILITY COUNTDOWN PROCESSING AD (300x250) -->
+          <div id="countdownAdWrap" class="hidden ad-slot-container rounded-2xl bg-slate-100/80 dark:bg-black/30 border border-slate-200 dark:border-white/10 p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Countdown Ad Slot (High CPM)</span>
+              <button type="button" class="open-vip-trigger text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline">Skip 0s with VIP</button>
+            </div>
+            <!-- PASTE YOUR ADSTERRA / MONETAG 300x250 OR NATIVE BANNER SCRIPT HERE -->
+            <div class="mx-auto w-full max-w-[320px] min-h-[160px] sm:min-h-[220px] rounded-xl border border-dashed border-cyan-500/35 bg-gradient-to-br from-cyan-500/10 via-emerald-500/5 to-indigo-500/10 flex flex-col items-center justify-center p-4 text-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-700 dark:text-cyan-300">Native / Rectangle 300×250</span>
+              <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Countdown Area Ad Slot</p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Highest viewability placement — visitors view this banner while the countdown runs.</p>
+            </div>
+            <!-- END COUNTDOWN AD SLOT -->
+          </div>
+
+          <!-- Destination Ready Card -->
+          <div id="resultBox" class="hidden p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 border border-emerald-500/35 space-y-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Destination Link Ready
+              </span>
+              <span id="endpointModeTag" class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-200">/wait</span>
+            </div>
+
+            <div id="generatedUrlDisplay" class="p-3.5 rounded-xl bg-white/85 dark:bg-black/45 border border-slate-200 dark:border-white/10 font-mono text-xs text-slate-700 dark:text-cyan-200 break-all select-all"></div>
+
+            <div class="flex flex-wrap gap-2.5">
+              <button id="openDestBtn" type="button"
+                class="flex-1 min-w-[160px] px-5 py-3 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-emerald-500 to-cyan-500 hover:brightness-110 shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all active:scale-95">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span>Open Link</span>
+              </button>
+
+              <button id="copyDestBtn" type="button"
+                class="px-4 py-3 rounded-xl text-sm font-bold bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-800 dark:text-white border border-slate-200 dark:border-white/15 flex items-center justify-center gap-2 transition-all active:scale-95">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy Link</span>
+              </button>
+
+              <button id="resetBypassBtn" type="button"
+                class="px-4 py-3 rounded-xl text-sm font-bold bg-slate-200/70 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2 transition-all active:scale-95">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <span>Bypass Another</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Technical Details Accordion -->
+          <div class="rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden bg-slate-50/70 dark:bg-black/25">
+            <button id="techDetailsToggle" type="button" aria-expanded="false"
+              class="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+              <span>Session Technical Details (Build US 5.1.0)</span>
+              <svg id="techDetailsChevron" class="w-4 h-4 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="techDetailsContent" class="accordion-content" data-open="false">
+              <div class="accordion-inner">
+                <dl id="techDetailsList" class="px-4 pb-4 grid grid-cols-[125px_1fr] gap-y-2 gap-x-3 text-xs font-mono border-t border-slate-200/70 dark:border-white/10 pt-3">
+                  <!-- Populated dynamically -->
+                </dl>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- BOTTOM VIP UPGRADE BANNER (Direct Sponsor Offer Removed)          -->
+      <!-- ================================================================= -->
+      <section class="ad-slot-container rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-amber-500/15 via-emerald-500/10 to-indigo-500/15 dark:from-amber-500/15 dark:via-[#111728] dark:to-indigo-500/15 backdrop-blur-xl border border-amber-500/35 shadow-lg">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div class="space-y-2 max-w-2xl">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
+                ★ VIP Membership
+              </span>
+              <span class="text-xs font-bold text-amber-600 dark:text-amber-400">Unlimited Daily Bypasses • 0s Wait • Ad-Free</span>
+            </div>
+            <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Need more than 2 bypasses per day? Upgrade to VIP</h3>
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              Free accounts are limited to <strong>2 bypasses per day</strong> with a 10-second wait. Unlock unlimited daily usage, zero ads, instant 0-second execution, and automatic Cloudflare Captcha skip with a server-verified VIP Key.
+            </p>
+          </div>
+          <div class="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
+            <a id="bottomDiscordBuyBtn" href="https://discord.gg/YOUR-SERVER-INVITE" target="_blank" rel="noopener noreferrer"
+              class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs sm:text-sm font-extrabold text-white bg-[#5865F2] hover:bg-[#4752C4] shadow-md shadow-[#5865F2]/25 transition-all active:scale-95 whitespace-nowrap">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              <span>Buy on Discord</span>
+            </a>
+            <button type="button" class="open-vip-trigger px-4 py-3 rounded-xl text-xs sm:text-sm font-extrabold bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 text-slate-950 shadow-md shadow-amber-500/20 transition-all active:scale-95 whitespace-nowrap">
+              Enter VIP Key
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: LOOTLABS DECODER (_llDecode Base64 + 5-Byte XOR)             -->
+    <!-- =================================================================== -->
+    <div id="tab-decoder" class="tab-panel hidden">
+      <section class="glow-border rounded-3xl bg-white/85 dark:bg-[#0f1422]/85 backdrop-blur-2xl shadow-2xl p-5 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-300 border border-pink-500/30 mb-2">
+              LootLabs _llDecode Engine
+            </span>
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">Base64 + 5-Byte XOR Token Decoder</h2>
+            <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+              Decode LootLabs WebSocket tokens (<code class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/10 font-mono text-pink-600 dark:text-pink-300">r:...</code> or raw Base64) directly inside your browser.
+            </p>
+          </div>
+          <button id="loadDemoTokenBtn" type="button"
+            class="px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-pink-500 to-indigo-600 text-white shadow-md shadow-pink-500/25 hover:brightness-110 transition-all active:scale-95">
+            Load Sample Token
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <label for="tokenInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Encrypted Token</label>
+          <textarea id="tokenInput" rows="4" spellcheck="false"
+            placeholder="Paste token here, e.g. r:TEc1MTA... or raw Base64 string from a LootLabs WebSocket payload"
+            class="w-full p-4 rounded-2xl font-mono text-xs sm:text-sm bg-slate-100/90 dark:bg-black/40 border border-slate-200 dark:border-white/15 text-slate-900 dark:text-pink-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500/60 transition-all"></textarea>
+
+          <div class="flex flex-wrap gap-2.5">
+            <button id="decodeTokenBtn" type="button"
+              class="px-6 py-3 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-pink-600 via-indigo-600 to-cyan-500 hover:brightness-110 shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition-all active:scale-95">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              <span>Decode Token</span>
+            </button>
+            <button id="clearTokenBtn" type="button"
+              class="px-4 py-3 rounded-xl text-sm font-bold bg-slate-200/70 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition-colors">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Decoded Output Area -->
+        <div id="decoderResult" class="hidden p-4 sm:p-5 rounded-2xl border space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <span id="decoderResultLabel" class="text-xs font-bold uppercase tracking-wider">Decoded Output</span>
+            <span id="decoderKeyBadge" class="hidden px-2 py-0.5 rounded-md text-[11px] font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"></span>
+          </div>
+          <div id="decoderOutputText" class="p-3 rounded-xl bg-white/85 dark:bg-black/45 border border-slate-200 dark:border-white/10 font-mono text-xs sm:text-sm break-all select-all"></div>
+          <div id="decoderOutputActions" class="hidden flex flex-wrap gap-2.5 pt-1">
+            <button id="openDecodedBtn" type="button"
+              class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-500 to-cyan-500 hover:brightness-110 shadow-md flex items-center gap-1.5 transition-all active:scale-95">
+              Open Decoded URL
+            </button>
+            <button id="copyDecodedBtn" type="button"
+              class="px-4 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-white/10 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-white/15 transition-all active:scale-95">
+              Copy URL
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: SUPPORTED DOMAINS                                            -->
+    <!-- =================================================================== -->
+    <div id="tab-domains" class="tab-panel hidden">
+      <section class="rounded-3xl bg-white/85 dark:bg-[#0f1422]/85 backdrop-blur-2xl border border-slate-200 dark:border-white/10 shadow-xl p-5 sm:p-8 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">Supported Domains Directory</h2>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Click any domain to populate it directly into Main Bypass</p>
+          </div>
+
+          <!-- Search Input -->
+          <div class="relative w-full sm:w-64">
+            <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="domainSearchInput" type="text" placeholder="Search domain (e.g. cuty, work)..."
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/15 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+          </div>
+        </div>
+
+        <!-- Category Filter Chips -->
+        <div id="categoryFilterBar" class="flex flex-wrap gap-2"></div>
+
+        <!-- Domains Grid -->
+        <div id="domainsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </section>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 4: HISTORY & SETTINGS                                           -->
+    <!-- =================================================================== -->
+    <div id="tab-settings" class="tab-panel hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Settings Card (Left / 7 Cols) -->
+        <section class="lg:col-span-7 rounded-3xl bg-white/85 dark:bg-[#0f1422]/85 backdrop-blur-2xl border border-slate-200 dark:border-white/10 shadow-xl p-5 sm:p-7 space-y-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white">System Settings</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Preferences are saved automatically in your browser</p>
+            </div>
+            <button id="resetSettingsBtn" type="button"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors">
+              Reset Defaults
+            </button>
+          </div>
+
+          <div class="space-y-3.5">
+            <!-- Plan & Daily Quota Summary -->
+            <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/25 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-bold text-slate-900 dark:text-white">Current Plan &amp; Daily Quota</p>
+                <p id="settingsQuotaDesc" class="text-xs text-slate-600 dark:text-slate-300 mt-0.5">Free Plan — 2 / 2 bypasses remaining today (10s countdown enforced).</p>
+              </div>
+              <button type="button" class="open-vip-trigger px-3.5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-sm hover:brightness-110 transition-all active:scale-95">
+                Manage VIP
+              </button>
+            </div>
+
+            <!-- Open in New Tab -->
+            <div class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10">
+              <div>
+                <p class="text-sm font-bold text-slate-900 dark:text-white">Open in New Tab</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Open destination URLs in a new browser tab so this page stays open.</p>
+              </div>
+              <button id="settingNewTab" type="button" role="switch" aria-checked="true"
+                class="switch-btn relative w-12 h-7 rounded-full transition-colors duration-200 shrink-0">
+                <span class="switch-knob absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"></span>
+              </button>
+            </div>
+
+            <!-- Endpoint & Theme Selects -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div class="p-4 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 space-y-2">
+                <label for="settingEndpoint" class="block text-sm font-bold text-slate-900 dark:text-white">Relay Endpoint</label>
+                <select id="settingEndpoint"
+                  class="w-full px-3 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="wait">/wait (Standard Safe)</option>
+                  <option value="bypass">/bypass (Direct)</option>
+                </select>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 space-y-2">
+                <label for="settingTheme" class="block text-sm font-bold text-slate-900 dark:text-white">Appearance Theme</label>
+                <select id="settingTheme"
+                  class="w-full px-3 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="dark">Dark (Default)</option>
+                  <option value="light">Light</option>
+                  <option value="system">Follow System</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Countdown Policy Info -->
+            <div class="p-4 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-4">
+              <div>
+                <p class="text-sm font-bold text-slate-900 dark:text-white">Countdown Wait Time</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Free users have a fixed 10s wait to support the service. VIP unlocks 0s instant mode.</p>
+              </div>
+              <span id="settingsWaitBadge" class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 shrink-0">10s (Free)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- History Card (Right / 5 Cols) -->
+        <section class="lg:col-span-5 rounded-3xl bg-white/85 dark:bg-[#0f1422]/85 backdrop-blur-2xl border border-slate-200 dark:border-white/10 shadow-xl p-5 sm:p-7 flex flex-col">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white">Bypass History</h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Last 15 links processed in this browser</p>
+            </div>
+            <button id="clearHistoryBtn" type="button"
+              class="hidden px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors">
+              Clear All
+            </button>
+          </div>
+
+          <div id="historyList" class="space-y-2.5 flex-1 overflow-y-auto max-h-[540px] pr-1">
+            <!-- Populated dynamically -->
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-200/80 dark:border-white/10 bg-white/55 dark:bg-[#070a12]/65 backdrop-blur-md">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-slate-700 dark:text-slate-200">LinkGate Web</span>
+        <span>•</span>
+        <span>Build <span class="font-mono">US 5.1.0</span></span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>Cloudflare Turnstile Protected</span>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: CLOUDFLARE TURNSTILE CAPTCHA GATE                            -->
+  <!-- ===================================================================== -->
+  <div id="captchaModal" role="dialog" aria-modal="true" aria-labelledby="captchaModalTitle"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
+    <div class="glow-border w-full max-w-md rounded-3xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-white/15 shadow-2xl overflow-hidden">
+
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-cyan-500/10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-500/25 shrink-0">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="captchaModalTitle" class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">Security Check</h2>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">Cloudflare Turnstile</span>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Anti-Bot Protection before bypass execution</p>
+          </div>
+        </div>
+
+        <button id="closeCaptchaBtn" type="button" aria-label="Cancel Verification"
+          class="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/10 transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-5 max-h-[82vh] overflow-y-auto">
+        <!-- Status Message -->
+        <div id="captchaStatusBox" class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 text-center">
+          <p id="captchaStatusText" class="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Complete Cloudflare verification to continue
+          </p>
+          <p id="captchaTargetPreview" class="mt-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate"></p>
+        </div>
+
+        <!-- Turnstile Widget Mount Slot -->
+        <div class="flex flex-col items-center justify-center min-h-[84px]">
+          <div id="turnstileLoading" class="flex items-center gap-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 py-4">
+            <svg class="w-5 h-5 animate-spin text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <span>Loading Cloudflare Turnstile widget...</span>
+          </div>
+
+          <!-- Real Cloudflare Turnstile Container -->
+          <div id="turnstileWidgetMount" class="flex justify-center w-full"></div>
+
+          <!-- Smart Interactive Fallback (if preview iframe / adblocker blocks challenges.cloudflare.com) -->
+          <div id="turnstileFallbackBox" class="hidden w-full max-w-[320px] space-y-2">
+            <button id="fallbackCheckBtn" type="button"
+              class="w-full p-3.5 rounded-xl bg-slate-100 dark:bg-[#1a2030] border border-slate-300 dark:border-slate-600/80 hover:border-amber-500/70 flex items-center justify-between gap-3 shadow-sm transition-all">
+              <div class="flex items-center gap-3">
+                <span id="fallbackCheckboxVisual" class="w-7 h-7 rounded-md border-2 border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-900 flex items-center justify-center transition-all"></span>
+                <span id="fallbackCheckLabel" class="text-sm font-semibold text-slate-800 dark:text-slate-100">Verify you are human</span>
+              </div>
+              <div class="flex flex-col items-end shrink-0">
+                <div class="flex items-center gap-1">
+                  <svg class="w-5 h-5 text-amber-500" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                  <span class="text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">CLOUDFLARE</span>
+                </div>
+                <span class="text-[9px] text-slate-400">Turnstile • Privacy</span>
+              </div>
+            </button>
+            <p class="text-[10px] text-center text-slate-500 dark:text-slate-400 leading-snug">
+              Preview simulation mode — on your live domain, the official Cloudflare Turnstile widget loads automatically.
+            </p>
+          </div>
+        </div>
+
+        <!-- AD SLOT 2A: HIGH-VIEWABILITY CAPTCHA GATE AD (300x250) -->
+        <div class="ad-slot-container pt-2 border-t border-slate-200 dark:border-white/10">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Advertisement</span>
+            <button type="button" class="open-vip-trigger text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline">No Captcha &amp; Ads (VIP)</button>
+          </div>
+          <!-- PASTE YOUR ADSTERRA / MONETAG 300x250 BANNER SCRIPT HERE -->
+          <div class="mx-auto w-full max-w-[300px] min-h-[130px] rounded-xl border border-dashed border-emerald-500/35 bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-indigo-500/10 flex flex-col items-center justify-center p-3.5 text-center gap-1.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">Rectangle 300×250</span>
+            <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Verification Gate Ad</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Paste your non-intrusive Adsterra / Monetag banner script here.</p>
+          </div>
+          <!-- END CAPTCHA AD SLOT -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: VIP ACCESS (SERVER-VERIFIED KEY + DISCORD PURCHASE)          -->
+  <!-- ===================================================================== -->
+  <div id="vipModal" role="dialog" aria-modal="true" aria-labelledby="vipModalTitle"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
+    <div class="w-full max-w-md rounded-3xl bg-white dark:bg-[#0f1422] border border-amber-500/40 shadow-2xl overflow-hidden">
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-gradient-to-r from-amber-500/20 via-orange-500/10 to-emerald-500/15">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center shadow-md">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <div>
+            <h2 id="vipModalTitle" class="text-base font-extrabold text-slate-900 dark:text-white">VIP Membership Access</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Unlimited daily uses, zero ads &amp; 0s instant relay</p>
+          </div>
+        </div>
+        <button id="closeVipModalBtn" type="button" aria-label="Close VIP Modal"
+          class="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/10 transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-5">
+        <!-- Benefits List -->
+        <ul class="space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-200">
+          <li class="flex items-center gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">✓</span>
+            <span><strong>Unlimited</strong> daily bypasses (removes the 2/day free limit)</span>
+          </li>
+          <li class="flex items-center gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">✓</span>
+            <span>All advertisement banners completely hidden</span>
+          </li>
+          <li class="flex items-center gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">✓</span>
+            <span>Automatic Cloudflare Turnstile skip &amp; 0s instant execution</span>
+          </li>
+        </ul>
+
+        <!-- VIP Active State Box -->
+        <div id="vipActivePanel" class="hidden p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-center space-y-3">
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 text-xs font-black">
+            ★ VIP ACTIVE
+          </div>
+          <p class="text-xs text-slate-700 dark:text-amber-100">
+            Your VIP license is active (<span id="activeVipTierLabel" class="font-mono font-bold">VIP Member</span>). Enjoy unlimited ad-free access!
+          </p>
+          <button id="deactivateVipBtn" type="button"
+            class="w-full py-2.5 rounded-xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 border border-rose-500/30 transition-colors">
+            Sign Out of VIP (Return to Free Plan)
+          </button>
+        </div>
+
+        <!-- Server-Verified VIP Key Form (No Hardcoded Keys in HTML) -->
+        <form id="vipKeyForm" class="space-y-3">
+          <div>
+            <label for="vipKeyInput" class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Enter Your VIP License Key</label>
+            <input id="vipKeyInput" type="text" autocomplete="off" spellcheck="false"
+              placeholder="Paste your purchased VIP key..."
+              class="w-full px-4 py-3 rounded-xl font-mono text-sm bg-slate-100 dark:bg-black/40 border border-slate-300 dark:border-white/15 text-slate-900 dark:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          </div>
+
+          <!-- Inline Server Verification Feedback -->
+          <div id="vipVerifyFeedback" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
+
+          <button id="vipSubmitBtn" type="submit"
+            class="w-full py-3 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 hover:brightness-110 shadow-lg shadow-amber-500/25 transition-all active:scale-[0.98] disabled:opacity-60">
+            Verify &amp; Activate VIP Key
+          </button>
+
+          <!-- Divider -->
+          <div class="relative py-1 flex items-center justify-center">
+            <div class="w-full border-t border-slate-200 dark:border-white/10"></div>
+            <span class="px-3 text-[11px] font-semibold text-slate-400 bg-white dark:bg-[#0f1422] whitespace-nowrap">Don't have a key yet?</span>
+            <div class="w-full border-t border-slate-200 dark:border-white/10"></div>
+          </div>
+
+          <!-- Discord Purchase Button -->
+          <a id="modalDiscordBuyBtn" href="https://discord.gg/YOUR-SERVER-INVITE" target="_blank" rel="noopener noreferrer"
+            class="w-full py-3 px-4 rounded-xl text-sm font-extrabold text-white bg-[#5865F2] hover:bg-[#4752C4] shadow-lg shadow-[#5865F2]/25 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            <span>Purchase VIP Key on Discord</span>
+          </a>
+          <p class="text-[11px] text-center text-slate-500 dark:text-slate-400">
+            Keys are verified securely on our server and delivered instantly via Discord.
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: DAILY LIMIT REACHED (2 / 2 FREE USES)                        -->
+  <!-- ===================================================================== -->
+  <div id="limitModal" role="dialog" aria-modal="true" aria-labelledby="limitModalTitle"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
+    <div class="w-full max-w-md rounded-3xl bg-white dark:bg-[#0f1422] border border-rose-500/40 shadow-2xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-gradient-to-r from-rose-500/15 via-amber-500/10 to-indigo-500/10">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <h2 id="limitModalTitle" class="text-base font-extrabold text-slate-900 dark:text-white">Daily Limit Reached</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">2 / 2 free bypasses used today</p>
+          </div>
+        </div>
+        <button id="closeLimitModalBtn" type="button" aria-label="Close Limit Modal"
+          class="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/10 transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5 text-center">
+        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+          You have used all <strong>2 free bypasses</strong> for today. Upgrade to <strong>VIP</strong> for unlimited daily bypasses, zero ads, and 0-second instant execution.
+        </p>
+
+        <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10">
+          <p class="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Free Quota Resets In</p>
+          <p id="quotaResetCountdown" class="mt-1 text-xl font-mono font-black text-emerald-600 dark:text-emerald-400">--:--:--</p>
+        </div>
+
+        <div class="space-y-2.5">
+          <a id="limitDiscordBuyBtn" href="https://discord.gg/YOUR-SERVER-INVITE" target="_blank" rel="noopener noreferrer"
+            class="w-full py-3 px-4 rounded-xl text-sm font-extrabold text-white bg-[#5865F2] hover:bg-[#4752C4] shadow-lg shadow-[#5865F2]/25 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            <span>Buy VIP Key on Discord</span>
+          </a>
+          <button id="limitEnterVipBtn" type="button"
+            class="w-full py-3 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-amber-400 to-orange-400 hover:brightness-110 transition-all active:scale-[0.98]">
+            Already Have a Key? Activate VIP
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" aria-live="polite" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2.5 max-w-sm w-[calc(100vw-2rem)] pointer-events-none"></div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION LOGIC                                                     -->
+  <!-- ===================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* =====================================================================
+         CORE CONFIGURATION
+         =====================================================================
+         1. TURNSTILE_SITE_KEY: Replace with your live Cloudflare Turnstile
+            Site Key from https://dash.cloudflare.com/ -> Turnstile.
+            Default below is Cloudflare's official Always-Pass Test Key.
+         2. DISCORD_INVITE_URL: Replace with your Discord server invite link
+            where users purchase VIP keys.
+         3. VIP_VERIFY_ENDPOINT: Your backend endpoint (Cloudflare Worker,
+            Vercel API Route, or Node.js) that checks keys securely on the
+            server so keys are NEVER exposed in HTML/JS.
+      ===================================================================== */
+      const APP_CONFIG = {
+        TURNSTILE_SITE_KEY: '1x00000000000000000000AA', // <-- REPLACE WITH YOUR LIVE SITE KEY
+        DISCORD_INVITE_URL: 'https://discord.gg/YOUR-SERVER-INVITE', // <-- REPLACE WITH YOUR DISCORD INVITE
+        VIP_VERIFY_ENDPOINT: '/api/verify-vip', // <-- YOUR SERVER-SIDE VIP VERIFICATION ENDPOINT
+        DAILY_FREE_LIMIT: 2,
+        FREE_WAIT_SECONDS: 10,
+        BUILD_CODE: 'US',
+        VERSION: '5.1.0',
+        TURNSTILE_FALLBACK_TIMEOUT_MS: 3500
+      };
+
+      const STORAGE_KEYS = {
+        SETTINGS: 'lg_web_settings_v510',
+        HISTORY: 'lg_web_history_v510',
+        VIP: 'lg_web_vip_v510',
+        QUOTA: 'lg_web_quota_v510'
+      };
+
+      const DEFAULT_SETTINGS = {
+        openNewTab: true,
+        endpoint: 'wait',
+        theme: 'dark'
+      };
+
+      const PROVIDER_CATEGORIES = [
+        {
+          id: 'linkvertise',
+          name: 'Linkvertise',
+          badgeColor: 'amber',
+          description: 'Popular monetized link shortener with automatic relay support.',
+          domains: ['linkvertise.com', 'link-target.net', 'link-target.org', 'link-hub.net', 'direct-link.net', 'direct-links.net', 'direct-links.org']
+        },
+        {
+          id: 'lootlabs',
+          name: 'LootLabs Network',
+          badgeColor: 'pink',
+          description: 'LootLabs network & mirrors (includes built-in XOR Token Decoder).',
+          domains: ['loot-link.com', 'loot-links.com', 'lootdest.com', 'lootdest.org', 'lootdest.info', 'lootlinks.co', 'lootlinks.com', 'lootlabs.com', 'lootlabs.gg', 'links.lootlabs.gg', 'loot-labs.com', 'lootlink.org', 'lootboost.net', 'fast-links.org', 'ultra-links.net']
+        },
+        {
+          id: 'workink',
+          name: 'Work.ink',
+          badgeColor: 'cyan',
+          description: 'Session & WebSocket-based link monetization platform.',
+          domains: ['work.ink', 'workink.net', 'r.work.ink', 'workink.one', 'workink.me']
+        },
+        {
+          id: 'shorteners',
+          name: 'Shorteners',
+          badgeColor: 'indigo',
+          description: 'Third-party link shorteners supported directly by LinkGate.',
+          domains: ['cuty.io', 'www.cuty.io', 'cety.app', 'www.cety.app', 'lockr.so', 'lockr.net', 'adfoc.us', 'v.gd', 'esohasl.net', 'rbscripts.net', 'link.rbscripts.net']
+        },
+        {
+          id: 'social',
+          name: 'Social Unlocks',
+          badgeColor: 'emerald',
+          description: 'Link lockers gated behind social subscribe or follow actions.',
+          domains: ['rekonise.com', 'boost.ink', 'mboost.me', 'bst.gg', 'booo.st', 'social-unlock.com', 'socialwolvez.com', 'sub2get.com', 'sub2unlock.com', 'sub2unlock.io', 'sub2unlock.net', 'sub2unlock.online', 'sub2unlock.top', 'sub4unlock.pro', 'sub4unlock.com', 'sub4unlock.io', 'subfinal.com', 'unlocknow.net', 'ytsubme.com']
+        },
+        {
+          id: 'pastebins',
+          name: 'Pastebins',
+          badgeColor: 'violet',
+          description: 'Text & script sharing platforms with monetization gates.',
+          domains: ['paster.so', 'paster.gg', 'links.spacebin.in', 'pypy.spacebin.in', 'pypy.in', 'pasteebins.com']
+        }
+      ];
+
+      const BADGE_STYLES = {
+        amber: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+        pink: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30',
+        cyan: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30',
+        violet: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+        emerald: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+        indigo: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30',
+        slate: 'bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-white/15'
+      };
+
+      const DOT_STYLES = {
+        amber: 'bg-amber-500',
+        pink: 'bg-pink-500',
+        cyan: 'bg-cyan-500',
+        violet: 'bg-violet-500',
+        emerald: 'bg-emerald-500',
+        indigo: 'bg-indigo-500',
+        slate: 'bg-slate-400'
+      };
+
+      /* =====================================================================
+         UTILITY & STORAGE HELPERS
+      ===================================================================== */
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function getTodayKey() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+          if (!raw) return { ...DEFAULT_SETTINGS };
+          const parsed = JSON.parse(raw);
+          return {
+            openNewTab: typeof parsed.openNewTab === 'boolean' ? parsed.openNewTab : DEFAULT_SETTINGS.openNewTab,
+            endpoint: parsed.endpoint === 'bypass' ? 'bypass' : 'wait',
+            theme: ['dark', 'light', 'system'].includes(parsed.theme) ? parsed.theme : 'dark'
+          };
+        } catch {
+          return { ...DEFAULT_SETTINGS };
+        }
+      }
+
+      function saveSettings() {
+        try { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)); } catch {}
+      }
+
+      function loadHistory() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.HISTORY);
+          const arr = raw ? JSON.parse(raw) : [];
+          return Array.isArray(arr) ? arr : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveHistory() {
+        try { localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems.slice(0, 15))); } catch {}
+      }
+
+      function loadVipState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.VIP);
+          if (!raw) return { active: false, token: '', tier: '', expiresAt: 0 };
+          const parsed = JSON.parse(raw);
+          const expiresAt = Number(parsed.expiresAt || 0);
+          if (expiresAt > 0 && Date.now() > expiresAt) {
+            localStorage.removeItem(STORAGE_KEYS.VIP);
+            return { active: false, token: '', tier: '', expiresAt: 0 };
+          }
+          return {
+            active: parsed.active === true && Boolean(parsed.token),
+            token: String(parsed.token || ''),
+            tier: String(parsed.tier || 'VIP Member'),
+            expiresAt
+          };
+        } catch {
+          return { active: false, token: '', tier: '', expiresAt: 0 };
+        }
+      }
+
+      function saveVipState() {
+        try { localStorage.setItem(STORAGE_KEYS.VIP, JSON.stringify(vipState)); } catch {}
+      }
+
+      function loadDailyQuota() {
+        const today = getTodayKey();
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.QUOTA);
+          if (!raw) return { date: today, used: 0 };
+          const parsed = JSON.parse(raw);
+          if (parsed.date !== today) return { date: today, used: 0 };
+          return { date: today, used: Math.max(0, parseInt(parsed.used, 10) || 0) };
+        } catch {
+          return { date: today, used: 0 };
+        }
+      }
+
+      function saveDailyQuota() {
+        try { localStorage.setItem(STORAGE_KEYS.QUOTA, JSON.stringify(dailyQuota)); } catch {}
+      }
+
+      function getRemainingFreeUses() {
+        const today = getTodayKey();
+        if (dailyQuota.date !== today) {
+          dailyQuota = { date: today, used: 0 };
+          saveDailyQuota();
+        }
+        return Math.max(0, APP_CONFIG.DAILY_FREE_LIMIT - dailyQuota.used);
+      }
+
+      function incrementDailyUsage() {
+        if (vipState.active) return;
+        const today = getTodayKey();
+        if (dailyQuota.date !== today) {
+          dailyQuota = { date: today, used: 0 };
+        }
+        dailyQuota.used += 1;
+        saveDailyQuota();
+        syncHeroPills();
+      }
+
+      let settings = loadSettings();
+      let historyItems = loadHistory();
+      let vipState = loadVipState();
+      let dailyQuota = loadDailyQuota();
+
+      let activeTask = {
+        running: false,
+        startedAt: 0,
+        elapsedTimer: null,
+        countdownTimer: null,
+        stepTimers: [],
+        sessionId: '',
+        sourceUrl: '',
+        relayUrl: '',
+        provider: null,
+        turnstileStatus: 'Pending'
+      };
+
+      let captchaState = {
+        open: false,
+        pendingDetected: null,
+        pollTimer: null,
+        fallbackTimer: null,
+        widgetId: null,
+        verified: false
+      };
+
+      let limitCountdownTimer = null;
+
+      /* =====================================================================
+         DOM REFERENCES
+      ===================================================================== */
+      const $ = id => document.getElementById(id);
+
+      const els = {
+        themeToggleBtn: $('themeToggleBtn'),
+        themeIcon: $('themeIcon'),
+        themeLabel: $('themeLabel'),
+        openVipModalBtn: $('openVipModalBtn'),
+        vipBtnText: $('vipBtnText'),
+
+        // Main Bypass
+        bypassForm: $('bypassForm'),
+        urlInput: $('urlInput'),
+        pasteUrlBtn: $('pasteUrlBtn'),
+        clearUrlBtn: $('clearUrlBtn'),
+        startBypassBtn: $('startBypassBtn'),
+        providerBadge: $('providerBadge'),
+        dailyQuotaPill: $('dailyQuotaPill'),
+        captchaStatusPill: $('captchaStatusPill'),
+        waitTimeBadge: $('waitTimeBadge'),
+        providerNotice: $('providerNotice'),
+        providerNoticeTitle: $('providerNoticeTitle'),
+        providerNoticeBody: $('providerNoticeBody'),
+
+        // Task Panel
+        taskPanel: $('taskPanel'),
+        elapsedCounter: $('elapsedCounter'),
+        statusBanner: $('statusBanner'),
+        statusIconBox: $('statusIconBox'),
+        statusTitle: $('statusTitle'),
+        statusMessage: $('statusMessage'),
+        countdownActions: $('countdownActions'),
+        countdownAdWrap: $('countdownAdWrap'),
+        resultBox: $('resultBox'),
+        endpointModeTag: $('endpointModeTag'),
+        generatedUrlDisplay: $('generatedUrlDisplay'),
+        openDestBtn: $('openDestBtn'),
+        copyDestBtn: $('copyDestBtn'),
+        resetBypassBtn: $('resetBypassBtn'),
+        techDetailsToggle: $('techDetailsToggle'),
+        techDetailsChevron: $('techDetailsChevron'),
+        techDetailsContent: $('techDetailsContent'),
+        techDetailsList: $('techDetailsList'),
+
+        // Captcha Modal
+        captchaModal: $('captchaModal'),
+        closeCaptchaBtn: $('closeCaptchaBtn'),
+        captchaStatusBox: $('captchaStatusBox'),
+        captchaStatusText: $('captchaStatusText'),
+        captchaTargetPreview: $('captchaTargetPreview'),
+        turnstileLoading: $('turnstileLoading'),
+        turnstileWidgetMount: $('turnstileWidgetMount'),
+        turnstileFallbackBox: $('turnstileFallbackBox'),
+        fallbackCheckBtn: $('fallbackCheckBtn'),
+        fallbackCheckboxVisual: $('fallbackCheckboxVisual'),
+        fallbackCheckLabel: $('fallbackCheckLabel'),
+
+        // VIP Modal
+        vipModal: $('vipModal'),
+        closeVipModalBtn: $('closeVipModalBtn'),
+        vipActivePanel: $('vipActivePanel'),
+        activeVipTierLabel: $('activeVipTierLabel'),
+        deactivateVipBtn: $('deactivateVipBtn'),
+        vipKeyForm: $('vipKeyForm'),
+        vipKeyInput: $('vipKeyInput'),
+        vipVerifyFeedback: $('vipVerifyFeedback'),
+        vipSubmitBtn: $('vipSubmitBtn'),
+
+        // Limit Modal
+        limitModal: $('limitModal'),
+        closeLimitModalBtn: $('closeLimitModalBtn'),
+        quotaResetCountdown: $('quotaResetCountdown'),
+        limitEnterVipBtn: $('limitEnterVipBtn'),
+
+        // Discord Links
+        bottomDiscordBuyBtn: $('bottomDiscordBuyBtn'),
+        modalDiscordBuyBtn: $('modalDiscordBuyBtn'),
+        limitDiscordBuyBtn: $('limitDiscordBuyBtn'),
+
+        // Decoder
+        tokenInput: $('tokenInput'),
+        decodeTokenBtn: $('decodeTokenBtn'),
+        clearTokenBtn: $('clearTokenBtn'),
+        loadDemoTokenBtn: $('loadDemoTokenBtn'),
+        decoderResult: $('decoderResult'),
+        decoderResultLabel: $('decoderResultLabel'),
+        decoderKeyBadge: $('decoderKeyBadge'),
+        decoderOutputText: $('decoderOutputText'),
+        decoderOutputActions: $('decoderOutputActions'),
+        openDecodedBtn: $('openDecodedBtn'),
+        copyDecodedBtn: $('copyDecodedBtn'),
+
+        // Domains
+        domainCountBadge: $('domainCountBadge'),
+        domainSearchInput: $('domainSearchInput'),
+        categoryFilterBar: $('categoryFilterBar'),
+        domainsGrid: $('domainsGrid'),
+
+        // Settings & History Tab
+        settingsQuotaDesc: $('settingsQuotaDesc'),
+        settingsWaitBadge: $('settingsWaitBadge'),
+        settingNewTab: $('settingNewTab'),
+        settingEndpoint: $('settingEndpoint'),
+        settingTheme: $('settingTheme'),
+        resetSettingsBtn: $('resetSettingsBtn'),
+        historyList: $('historyList'),
+        clearHistoryBtn: $('clearHistoryBtn'),
+
+        toastContainer: $('toastContainer')
+      };
+
+      // Sync Discord invite URLs from APP_CONFIG
+      [els.bottomDiscordBuyBtn, els.modalDiscordBuyBtn, els.limitDiscordBuyBtn].forEach(link => {
+        if (link) link.href = APP_CONFIG.DISCORD_INVITE_URL;
+      });
+
+      /* =====================================================================
+         TOAST & CLIPBOARD HELPERS
+      ===================================================================== */
+      function showToast(message, type = 'info') {
+        const themes = {
+          success: {
+            border: 'border-emerald-500/40',
+            iconBg: 'bg-emerald-500/20 text-emerald-400',
+            icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+          },
+          error: {
+            border: 'border-rose-500/40',
+            iconBg: 'bg-rose-500/20 text-rose-400',
+            icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+          },
+          warning: {
+            border: 'border-amber-500/40',
+            iconBg: 'bg-amber-500/20 text-amber-400',
+            icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+          },
+          info: {
+            border: 'border-cyan-500/40',
+            iconBg: 'bg-cyan-500/20 text-cyan-400',
+            icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+          }
+        };
+
+        const t = themes[type] || themes.info;
+        const toast = document.createElement('div');
+        toast.className = `toast-enter pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-900/95 dark:bg-[#111726]/95 text-white border ${t.border} shadow-2xl backdrop-blur-xl`;
+        toast.innerHTML = `
+          <div class="w-7 h-7 rounded-xl ${t.iconBg} flex items-center justify-center shrink-0">${t.icon}</div>
+          <p class="text-xs sm:text-sm font-semibold leading-snug flex-1"></p>
+        `;
+        toast.querySelector('p').textContent = message;
+        els.toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+          toast.classList.remove('toast-enter');
+          toast.classList.add('toast-exit');
+          setTimeout(() => toast.remove(), 220);
+        }, 3400);
+      }
+
+      async function copyToClipboard(text, successMsg = 'Link copied to clipboard!') {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            showToast(successMsg, 'success');
+            return true;
+          }
+        } catch {}
+
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'fixed';
+          textarea.style.top = '-9999px';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          textarea.setSelectionRange(0, text.length);
+          const ok = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (ok) {
+            showToast(successMsg, 'success');
+            return true;
+          }
+        } catch {}
+
+        showToast('Could not copy automatically. Please copy manually.', 'warning');
+        return false;
+      }
+
+      /* =====================================================================
+         THEME MANAGEMENT
+      ===================================================================== */
+      const mediaQueryDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      function getEffectiveTheme() {
+        return settings.theme === 'dark' || (settings.theme === 'system' && mediaQueryDark.matches) ? 'dark' : 'light';
+      }
+
+      function applyTheme(mode) {
+        const isDark = mode === 'dark' || (mode === 'system' && mediaQueryDark.matches);
+        document.documentElement.classList.toggle('dark', isDark);
+
+        const icons = {
+          dark: '<svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+          light: '<svg class="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+          system: '<svg class="w-4 h-4 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+        };
+        const labels = { dark: 'Dark', light: 'Light', system: 'System' };
+
+        els.themeIcon.innerHTML = icons[mode] || icons.dark;
+        els.themeLabel.textContent = labels[mode] || 'Dark';
+        els.settingTheme.value = mode;
+      }
+
+      mediaQueryDark.addEventListener('change', () => {
+        if (settings.theme === 'system') applyTheme('system');
+      });
+
+      els.themeToggleBtn.addEventListener('click', () => {
+        const order = ['dark', 'light', 'system'];
+        const next = order[(order.indexOf(settings.theme) + 1) % order.length];
+        settings.theme = next;
+        saveSettings();
+        applyTheme(next);
+        showToast(`Theme switched to ${next.charAt(0).toUpperCase() + next.slice(1)} mode.`, 'info');
+      });
+
+      /* =====================================================================
+         VIP MODE, SERVER-SIDE KEY VERIFICATION & DAILY QUOTA UI
+      ===================================================================== */
+      function setVipFeedback(tone, msg) {
+        if (!msg) {
+          els.vipVerifyFeedback.classList.add('hidden');
+          return;
+        }
+        const styles = {
+          error: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/35',
+          warning: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/35',
+          success: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35'
+        };
+        els.vipVerifyFeedback.className = `p-3 rounded-xl text-xs font-semibold ${styles[tone] || styles.warning}`;
+        els.vipVerifyFeedback.textContent = msg;
+        els.vipVerifyFeedback.classList.remove('hidden');
+      }
+
+      async function verifyVipKeyOnServer(rawKey) {
+        // Keys are NEVER hardcoded in HTML/JS.
+        // This sends the user's key to your backend API (e.g. Cloudflare Worker / Vercel Function).
+        const res = await fetch(APP_CONFIG.VIP_VERIFY_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: rawKey })
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('BACKEND_NOT_CONFIGURED');
+        }
+
+        const data = await res.json();
+        if (!res.ok || !data.valid) {
+          return { valid: false, message: data.message || 'Invalid or expired VIP key.' };
+        }
+
+        return {
+          valid: true,
+          token: data.sessionToken || 'verified',
+          tier: data.tier || 'VIP Member',
+          expiresAt: Number(data.expiresAt || 0)
+        };
+      }
+
+      function applyVipUI() {
+        const isVip = vipState.active;
+
+        document.querySelectorAll('.ad-slot-container').forEach(slot => {
+          slot.classList.toggle('vip-hidden', isVip);
+        });
+
+        if (isVip) {
+          els.openVipModalBtn.className = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all active:scale-95 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 animate-gold-glow border border-yellow-200/70';
+          els.vipBtnText.textContent = 'VIP ACTIVE';
+        } else {
+          els.openVipModalBtn.className = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 hover:brightness-110 text-slate-950 shadow-md shadow-amber-500/25';
+          els.vipBtnText.textContent = 'VIP Access';
+        }
+
+        els.vipActivePanel.classList.toggle('hidden', !isVip);
+        els.vipKeyForm.classList.toggle('hidden', isVip);
+        els.activeVipTierLabel.textContent = vipState.tier || 'VIP Member';
+
+        syncHeroPills();
+      }
+
+      function syncHeroPills() {
+        const remaining = getRemainingFreeUses();
+
+        if (vipState.active) {
+          els.dailyQuotaPill.textContent = '∞ Unlimited (VIP)';
+          els.dailyQuotaPill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-mono font-bold';
+
+          els.captchaStatusPill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-bold';
+          els.captchaStatusPill.innerHTML = '<span>★ VIP: Captcha Skipped</span>';
+
+          els.waitTimeBadge.textContent = '⚡ 0s (VIP Instant)';
+          els.waitTimeBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono font-bold';
+
+          els.settingsQuotaDesc.textContent = 'VIP Active — Unlimited daily bypasses, zero ads, and 0s instant relay.';
+          els.settingsWaitBadge.textContent = '0s (VIP)';
+          els.settingsWaitBadge.className = 'px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0';
+          return;
+        }
+
+        if (remaining > 1) {
+          els.dailyQuotaPill.textContent = `${remaining} / ${APP_CONFIG.DAILY_FREE_LIMIT} Free Left Today`;
+          els.dailyQuotaPill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono font-bold';
+        } else if (remaining === 1) {
+          els.dailyQuotaPill.textContent = `1 / ${APP_CONFIG.DAILY_FREE_LIMIT} Free Left Today`;
+          els.dailyQuotaPill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-mono font-bold';
+        } else {
+          els.dailyQuotaPill.textContent = `0 / ${APP_CONFIG.DAILY_FREE_LIMIT} Daily Limit Reached`;
+          els.dailyQuotaPill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-mono font-bold';
+        }
+
+        els.captchaStatusPill.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30';
+        els.captchaStatusPill.innerHTML = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Cloudflare Captcha: On</span>';
+
+        els.waitTimeBadge.textContent = `⏱ ${APP_CONFIG.FREE_WAIT_SECONDS}s`;
+        els.waitTimeBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 font-mono';
+
+        els.settingsQuotaDesc.textContent = `Free Plan — ${remaining} / ${APP_CONFIG.DAILY_FREE_LIMIT} bypasses remaining today (${APP_CONFIG.FREE_WAIT_SECONDS}s wait enforced).`;
+        els.settingsWaitBadge.textContent = `${APP_CONFIG.FREE_WAIT_SECONDS}s (Free)`;
+        els.settingsWaitBadge.className = 'px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 shrink-0';
+      }
+
+      function openVipModal() {
+        applyVipUI();
+        setVipFeedback('', '');
+        els.vipModal.classList.remove('hidden');
+        els.vipModal.classList.add('flex');
+        if (!vipState.active) setTimeout(() => els.vipKeyInput.focus(), 60);
+      }
+
+      function closeVipModal() {
+        els.vipModal.classList.add('hidden');
+        els.vipModal.classList.remove('flex');
+      }
+
+      function updateMidnightCountdown() {
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setHours(24, 0, 0, 0);
+        const diffSec = Math.max(0, Math.floor((midnight - now) / 1000));
+        const h = String(Math.floor(diffSec / 3600)).padStart(2, '0');
+        const m = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
+        const s = String(diffSec % 60).padStart(2, '0');
+        els.quotaResetCountdown.textContent = `${h}:${m}:${s}`;
+      }
+
+      function openLimitModal() {
+        if (limitCountdownTimer) clearInterval(limitCountdownTimer);
+        updateMidnightCountdown();
+        limitCountdownTimer = setInterval(updateMidnightCountdown, 1000);
+        els.limitModal.classList.remove('hidden');
+        els.limitModal.classList.add('flex');
+      }
+
+      function closeLimitModal() {
+        if (limitCountdownTimer) {
+          clearInterval(limitCountdownTimer);
+          limitCountdownTimer = null;
+        }
+        els.limitModal.classList.add('hidden');
+        els.limitModal.classList.remove('flex');
+      }
+
+      /* =====================================================================
+         TABS NAVIGATION
+      ===================================================================== */
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      const tabPanels = document.querySelectorAll('.tab-panel');
+
+      function switchTab(tabName) {
+        tabButtons.forEach(btn => {
+          const active = btn.dataset.tab === tabName;
+          btn.setAttribute('aria-selected', String(active));
+          if (active) {
+            btn.className = 'tab-btn px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all bg-gradient-to-r from-emerald-600 to-cyan-600 text-white shadow-md shadow-emerald-600/25';
+          } else {
+            btn.className = 'tab-btn px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10';
+          }
+        });
+
+        tabPanels.forEach(panel => {
+          panel.classList.toggle('hidden', panel.id !== `tab-${tabName}`);
+        });
+      }
+
+      tabButtons.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+      /* =====================================================================
+         URL PARSING & PROVIDER AUTO-DETECTION
+      ===================================================================== */
+      function normalizeUrl(raw) {
+        const trimmed = String(raw || '').trim();
+        if (!trimmed) return null;
+        const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+        try {
+          const parsed = new URL(candidate);
+          if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname.includes('.')) return null;
+          return parsed;
+        } catch {
+          return null;
+        }
+      }
+
+      function detectProvider(rawUrl) {
+        const parsed = normalizeUrl(rawUrl);
+        if (!parsed) return null;
+        const host = parsed.hostname.toLowerCase();
+
+        for (const cat of PROVIDER_CATEGORIES) {
+          for (const domain of cat.domains) {
+            if (host === domain || host.endsWith('.' + domain)) {
+              return {
+                categoryId: cat.id,
+                name: cat.name,
+                color: cat.badgeColor,
+                matchedDomain: domain,
+                hostname: host,
+                url: parsed.href,
+                supported: true
+              };
+            }
+          }
+        }
+
+        return {
+          categoryId: 'generic',
+          name: 'External Link',
+          color: 'slate',
+          matchedDomain: host,
+          hostname: host,
+          url: parsed.href,
+          supported: false
+        };
+      }
+
+      function updateProviderUI(rawValue) {
+        const hasText = rawValue.trim().length > 0;
+        els.clearUrlBtn.classList.toggle('hidden', !hasText);
+
+        const detected = detectProvider(rawValue);
+        if (!detected) {
+          els.providerBadge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${BADGE_STYLES.slate}`;
+          els.providerBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>${hasText ? 'Invalid URL format' : 'Waiting for URL...'}</span>`;
+          els.providerNotice.classList.add('hidden');
+          return null;
+        }
+
+        const styleClass = BADGE_STYLES[detected.color] || BADGE_STYLES.slate;
+        const dotClass = DOT_STYLES[detected.color] || DOT_STYLES.slate;
+        els.providerBadge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${styleClass}`;
+        els.providerBadge.innerHTML = `
+          <span class="w-2 h-2 rounded-full ${dotClass}"></span>
+          <span>${escapeHtml(detected.name)}</span>
+          <span class="opacity-70 font-mono text-[10px]">(${escapeHtml(detected.hostname)})</span>
+        `;
+
+        if (detected.categoryId === 'workink') {
+          els.providerNotice.classList.remove('hidden');
+          els.providerNoticeTitle.textContent = 'Work.ink Provider Note';
+          els.providerNoticeBody.textContent = 'This link will be routed through the relay after Cloudflare Turnstile verification completes.';
+        } else if (detected.categoryId === 'lootlabs') {
+          els.providerNotice.classList.remove('hidden');
+          els.providerNoticeTitle.textContent = 'LootLabs Network Note';
+          els.providerNoticeBody.textContent = 'This link will be processed via relay. If you already have a WebSocket token (r:...), use the "LootLabs Decoder" tab for instant decoding.';
+        } else {
+          els.providerNotice.classList.add('hidden');
+        }
+
+        return detected;
+      }
+
+      /* =====================================================================
+         CLOUDFLARE TURNSTILE CAPTCHA GATE
+      ===================================================================== */
+      function maskToken(token, isSimulated = false) {
+        const clean = String(token || '').trim();
+        if (!clean) return 'Unavailable';
+        const prefix = isSimulated ? 'SIM ' : 'CF ';
+        if (clean.length <= 14) return `${prefix}${clean} (Valid)`;
+        return `${prefix}${clean.slice(0, 8)}••••${clean.slice(-6)} (Valid)`;
+      }
+
+      function cleanupCaptchaGate() {
+        if (captchaState.pollTimer) clearInterval(captchaState.pollTimer);
+        if (captchaState.fallbackTimer) clearTimeout(captchaState.fallbackTimer);
+        captchaState.pollTimer = null;
+        captchaState.fallbackTimer = null;
+
+        if (captchaState.widgetId !== null && window.turnstile && typeof window.turnstile.remove === 'function') {
+          try { window.turnstile.remove(captchaState.widgetId); } catch {}
+        }
+        captchaState.widgetId = null;
+        els.turnstileWidgetMount.innerHTML = '';
+      }
+
+      function closeCaptchaGate(cancelled = false) {
+        cleanupCaptchaGate();
+        captchaState.open = false;
+        els.captchaModal.classList.add('hidden');
+        els.captchaModal.classList.remove('flex');
+        if (cancelled) {
+          captchaState.pendingDetected = null;
+          showToast('Cloudflare verification cancelled.', 'info');
+        }
+      }
+
+      function showFallbackCheckbox() {
+        if (!captchaState.open || captchaState.verified) return;
+        if (captchaState.pollTimer) {
+          clearInterval(captchaState.pollTimer);
+          captchaState.pollTimer = null;
+        }
+        els.turnstileLoading.classList.add('hidden');
+        els.turnstileWidgetMount.innerHTML = '';
+        els.turnstileFallbackBox.classList.remove('hidden');
+
+        els.fallbackCheckBtn.disabled = false;
+        els.fallbackCheckboxVisual.className = 'w-7 h-7 rounded-md border-2 border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-900 flex items-center justify-center transition-all';
+        els.fallbackCheckboxVisual.innerHTML = '';
+        els.fallbackCheckLabel.textContent = 'Verify you are human';
+      }
+
+      function completeCaptchaVerification(token, isSimulated = false) {
+        if (!captchaState.open || captchaState.verified) return;
+        captchaState.verified = true;
+
+        if (captchaState.pollTimer) clearInterval(captchaState.pollTimer);
+        if (captchaState.fallbackTimer) clearTimeout(captchaState.fallbackTimer);
+
+        els.captchaStatusBox.className = 'p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-center transition-all';
+        els.captchaStatusText.className = 'text-xs sm:text-sm font-extrabold text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-2';
+        els.captchaStatusText.innerHTML = `
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Verified! Starting bypass...</span>
+        `;
+
+        const targetDetected = captchaState.pendingDetected;
+        const masked = maskToken(token, isSimulated);
+
+        setTimeout(() => {
+          closeCaptchaGate(false);
+          if (targetDetected) {
+            executeBypassFlow(targetDetected, masked);
+          }
+        }, 700);
+      }
+
+      function openCaptchaGate(detected) {
+        cleanupCaptchaGate();
+        captchaState.open = true;
+        captchaState.verified = false;
+        captchaState.pendingDetected = detected;
+
+        els.captchaStatusBox.className = 'p-3.5 rounded-2xl bg-slate-100/90 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 text-center';
+        els.captchaStatusText.className = 'text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200';
+        els.captchaStatusText.textContent = 'Complete Cloudflare verification to continue';
+        els.captchaTargetPreview.textContent = `${detected.name} • ${detected.hostname}`;
+
+        els.turnstileLoading.classList.remove('hidden');
+        els.turnstileFallbackBox.classList.add('hidden');
+        els.turnstileWidgetMount.innerHTML = '';
+
+        els.captchaModal.classList.remove('hidden');
+        els.captchaModal.classList.add('flex');
+
+        captchaState.fallbackTimer = setTimeout(() => {
+          if (!captchaState.verified && captchaState.widgetId === null) {
+            showFallbackCheckbox();
+          }
+        }, APP_CONFIG.TURNSTILE_FALLBACK_TIMEOUT_MS);
+
+        const tryRenderTurnstile = () => {
+          if (!captchaState.open || captchaState.verified) return true;
+          if (window.turnstile && typeof window.turnstile.render === 'function') {
+            if (captchaState.pollTimer) {
+              clearInterval(captchaState.pollTimer);
+              captchaState.pollTimer = null;
+            }
+            try {
+              els.turnstileLoading.classList.add('hidden');
+              captchaState.widgetId = window.turnstile.render(els.turnstileWidgetMount, {
+                sitekey: APP_CONFIG.TURNSTILE_SITE_KEY,
+                theme: getEffectiveTheme(),
+                callback: function (token) {
+                  completeCaptchaVerification(token, false);
+                },
+                'error-callback': function () {
+                  showFallbackCheckbox();
+                },
+                'expired-callback': function () {
+                  showToast('Captcha session expired. Please verify again.', 'warning');
+                }
+              });
+              if (captchaState.fallbackTimer) {
+                clearTimeout(captchaState.fallbackTimer);
+                captchaState.fallbackTimer = null;
+              }
+            } catch {
+              showFallbackCheckbox();
+            }
+            return true;
+          }
+          return false;
+        };
+
+        if (!tryRenderTurnstile()) {
+          captchaState.pollTimer = setInterval(tryRenderTurnstile, 160);
+        }
+      }
+
+      els.fallbackCheckBtn.addEventListener('click', () => {
+        if (captchaState.verified) return;
+        els.fallbackCheckBtn.disabled = true;
+        els.fallbackCheckLabel.textContent = 'Verifying...';
+        els.fallbackCheckboxVisual.className = 'w-7 h-7 rounded-md border-2 border-amber-500 bg-amber-500/10 flex items-center justify-center';
+        els.fallbackCheckboxVisual.innerHTML = '<svg class="w-4 h-4 animate-spin text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+
+        setTimeout(() => {
+          els.fallbackCheckboxVisual.className = 'w-7 h-7 rounded-md border-2 border-emerald-500 bg-emerald-500 text-white flex items-center justify-center';
+          els.fallbackCheckboxVisual.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+          els.fallbackCheckLabel.textContent = 'Success!';
+
+          const fakeToken = '0.preview_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+          completeCaptchaVerification(fakeToken, true);
+        }, 650);
+      });
+
+      /* =====================================================================
+         4-STAGE BYPASS EXECUTION ENGINE
+      ===================================================================== */
+      function clearActiveTimers() {
+        if (activeTask.elapsedTimer) clearInterval(activeTask.elapsedTimer);
+        if (activeTask.countdownTimer) clearInterval(activeTask.countdownTimer);
+        activeTask.stepTimers.forEach(t => clearTimeout(t));
+        activeTask.elapsedTimer = null;
+        activeTask.countdownTimer = null;
+        activeTask.stepTimers = [];
+      }
+
+      function setStageState(stageName, state) {
+        const order = ['connect', 'verify', 'tasks', 'destination'];
+        const targetIndex = order.indexOf(stageName);
+        const items = document.querySelectorAll('.stage-item');
+
+        items.forEach((item, idx) => {
+          const dot = item.querySelector('.stage-dot');
+          const label = item.querySelector('.stage-label');
+          let itemState = 'pending';
+
+          if (state === 'complete-all') {
+            itemState = 'complete';
+          } else if (idx < targetIndex) {
+            itemState = 'complete';
+          } else if (idx === targetIndex) {
+            itemState = state;
+          }
+
+          dot.classList.remove('animate-pulse-ring');
+
+          if (itemState === 'complete') {
+            dot.className = 'stage-dot w-9 h-9 rounded-xl border-2 border-emerald-500 bg-emerald-500 text-white flex items-center justify-center text-xs font-extrabold transition-all shadow-md shadow-emerald-500/25';
+            dot.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+            label.className = 'stage-label text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 text-center';
+          } else if (itemState === 'active') {
+            dot.className = 'stage-dot w-9 h-9 rounded-xl border-2 border-emerald-500 bg-gradient-to-br from-emerald-600 to-cyan-600 text-white flex items-center justify-center text-xs font-extrabold transition-all animate-pulse-ring';
+            dot.textContent = String(idx + 1);
+            label.className = 'stage-label text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-300 text-center';
+          } else {
+            dot.className = 'stage-dot w-9 h-9 rounded-xl border-2 border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 text-slate-400 flex items-center justify-center text-xs font-extrabold transition-all';
+            dot.textContent = String(idx + 1);
+            label.className = 'stage-label text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 text-center';
+          }
+        });
+
+        for (let i = 0; i < 3; i++) {
+          const conn = $('connector-' + i);
+          if (!conn) continue;
+          conn.classList.remove('stage-connector-shimmer');
+          if (state === 'complete-all' || i < targetIndex) {
+            conn.style.width = '100%';
+          } else if (i === targetIndex && state === 'active') {
+            conn.style.width = '55%';
+            conn.classList.add('stage-connector-shimmer');
+          } else {
+            conn.style.width = '0%';
+          }
+        }
+      }
+
+      function setStatusBanner(tone, title, message) {
+        const tones = {
+          active: {
+            border: 'border-emerald-500',
+            iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+            icon: '<svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>'
+          },
+          warning: {
+            border: 'border-amber-500',
+            iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+            icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+          },
+          success: {
+            border: 'border-emerald-500',
+            iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+            icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+          }
+        };
+
+        const style = tones[tone] || tones.active;
+        els.statusBanner.className = `p-4 sm:p-5 rounded-2xl border-l-4 ${style.border} bg-slate-100/90 dark:bg-white/[0.04] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all`;
+        els.statusIconBox.className = `w-10 h-10 rounded-xl ${style.iconBg} flex items-center justify-center shrink-0`;
+        els.statusIconBox.innerHTML = style.icon;
+        els.statusTitle.textContent = title;
+        els.statusMessage.textContent = message;
+      }
+
+      function updateTechDetails(stage, lastEvent) {
+        const elapsed = Math.max(0, Math.floor((Date.now() - activeTask.startedAt) / 1000));
+        const rows = [
+          ['Build', `${APP_CONFIG.BUILD_CODE} ${APP_CONFIG.VERSION}`],
+          ['Session ID', activeTask.sessionId],
+          ['Provider', activeTask.provider ? `${activeTask.provider.name} (${activeTask.provider.hostname})` : '-'],
+          ['Stage', stage],
+          ['Turnstile Token', activeTask.turnstileStatus],
+          ['Plan', vipState.active ? `VIP (${vipState.tier})` : `Free (${getRemainingFreeUses()}/${APP_CONFIG.DAILY_FREE_LIMIT} left)`],
+          ['Endpoint', `/${settings.endpoint}`],
+          ['Elapsed', `${elapsed}s`],
+          ['Last Event', lastEvent]
+        ];
+        els.techDetailsList.innerHTML = rows.map(([k, v]) => `
+          <dt class="text-slate-500 dark:text-slate-400">${escapeHtml(k)}</dt>
+          <dd class="text-slate-800 dark:text-slate-200 break-all">${escapeHtml(v)}</dd>
+        `).join('');
+      }
+
+      function buildRelayUrl(targetUrl) {
+        const encoded = encodeURIComponent(targetUrl);
+        if (settings.endpoint === 'bypass') {
+          return `https://bypass.tools/bypass?url=${encoded}`;
+        }
+        const waitVal = vipState.active ? 0 : APP_CONFIG.FREE_WAIT_SECONDS;
+        return `https://bypass.tools/wait?url=${encoded}&wait=${waitVal}`;
+      }
+
+      function handleBypassSubmit(rawUrl) {
+        const detected = updateProviderUI(rawUrl);
+        if (!detected) {
+          showToast('Please enter a valid URL first (e.g. https://linkvertise.com/...)', 'error');
+          els.urlInput.focus();
+          return;
+        }
+
+        // Enforce 2/day free quota
+        if (!vipState.active && getRemainingFreeUses() <= 0) {
+          openLimitModal();
+          return;
+        }
+
+        if (vipState.active) {
+          showToast('VIP Active — Skipping Captcha & countdown!', 'success');
+          executeBypassFlow(detected, 'VIP-SKIP (Verified)');
+        } else {
+          openCaptchaGate(detected);
+        }
+      }
+
+      function executeBypassFlow(detected, turnstileStatus) {
+        clearActiveTimers();
+
+        const sessionId = 'lg_' + Math.random().toString(36).slice(2, 10);
+        const relayUrl = buildRelayUrl(detected.url);
+
+        activeTask = {
+          running: true,
+          startedAt: Date.now(),
+          elapsedTimer: null,
+          countdownTimer: null,
+          stepTimers: [],
+          sessionId,
+          sourceUrl: detected.url,
+          relayUrl,
+          provider: detected,
+          turnstileStatus
+        };
+
+        els.taskPanel.classList.remove('hidden');
+        els.resultBox.classList.add('hidden');
+        els.countdownActions.classList.add('hidden');
+        els.countdownAdWrap.classList.add('hidden');
+        els.startBypassBtn.disabled = true;
+        els.elapsedCounter.textContent = '0s elapsed';
+
+        els.taskPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        activeTask.elapsedTimer = setInterval(() => {
+          const sec = Math.max(0, Math.floor((Date.now() - activeTask.startedAt) / 1000));
+          els.elapsedCounter.textContent = `${sec}s elapsed`;
+        }, 250);
+
+        // Stage 1: Prepare
+        setStageState('connect', 'active');
+        setStatusBanner('active', 'Preparing Bypass Session...', `Validating URL parameters for ${detected.hostname}.`);
+        updateTechDetails('Prepare', 'Initializing relay session');
+
+        // VIP Instant Execution (0s)
+        if (vipState.active) {
+          const tVip = setTimeout(() => {
+            setStageState('verify', 'active');
+            setStatusBanner('active', 'VIP Priority Verified', 'Bypassing wait queue and generating instant destination...');
+            updateTechDetails('Verify', 'VIP Priority Passed');
+          }, 220);
+
+          const tVipDone = setTimeout(() => {
+            completeBypass();
+          }, 550);
+
+          activeTask.stepTimers.push(tVip, tVipDone);
+          return;
+        }
+
+        // Stage 2: Verify
+        const t1 = setTimeout(() => {
+          setStageState('verify', 'active');
+          setStatusBanner('active', 'Cloudflare Verification Accepted', `Security token confirmed for ${detected.name}.`);
+          updateTechDetails('Verify', 'Cloudflare Turnstile Verified');
+        }, 420);
+
+        // Stage 3: Enforced 10s Countdown for Free Users (High-Viewability Ad Window)
+        const t2 = setTimeout(() => {
+          setStageState('tasks', 'active');
+          let remaining = APP_CONFIG.FREE_WAIT_SECONDS;
+          els.countdownActions.classList.remove('hidden');
+          els.countdownAdWrap.classList.remove('hidden');
+
+          const renderCountdown = () => {
+            setStatusBanner(
+              'warning',
+              `Processing Link • Please wait ${remaining}s`,
+              `Preparing your destination link. Upgrade to VIP to remove this countdown and all ads.`
+            );
+            updateTechDetails('Process', `Countdown remaining: ${remaining}s`);
+          };
+
+          renderCountdown();
+
+          activeTask.countdownTimer = setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+              clearInterval(activeTask.countdownTimer);
+              activeTask.countdownTimer = null;
+              els.countdownActions.classList.add('hidden');
+              els.countdownAdWrap.classList.add('hidden');
+              completeBypass();
+            } else {
+              renderCountdown();
+            }
+          }, 1000);
+        }, 900);
+
+        activeTask.stepTimers.push(t1, t2);
+      }
+
+      function completeBypass() {
+        if (!activeTask.running) return;
+        activeTask.running = false;
+        clearActiveTimers();
+
+        // Deduct 1 free daily use on completion
+        incrementDailyUsage();
+
+        const elapsed = Math.max(0, Math.floor((Date.now() - activeTask.startedAt) / 1000));
+        els.elapsedCounter.textContent = `Completed in ${elapsed}s`;
+        els.startBypassBtn.disabled = false;
+        els.countdownActions.classList.add('hidden');
+        els.countdownAdWrap.classList.add('hidden');
+
+        setStageState('destination', 'complete-all');
+        setStatusBanner('success', 'Bypass Complete! Destination Ready', 'Your LinkGate relay link has been generated and is ready to open.');
+
+        els.endpointModeTag.textContent = `/${settings.endpoint}`;
+        els.generatedUrlDisplay.textContent = activeTask.relayUrl;
+        els.resultBox.classList.remove('hidden');
+
+        updateTechDetails('Ready', 'Destination URL generated');
+
+        addHistoryItem({
+          id: activeTask.sessionId,
+          sourceUrl: activeTask.sourceUrl,
+          relayUrl: activeTask.relayUrl,
+          providerName: activeTask.provider.name,
+          providerColor: activeTask.provider.color,
+          timestamp: Date.now()
+        });
+
+        const remMsg = vipState.active
+          ? 'Destination ready!'
+          : `Destination ready! (${getRemainingFreeUses()}/${APP_CONFIG.DAILY_FREE_LIMIT} free uses left today)`;
+        showToast(remMsg, 'success');
+      }
+
+      function resetBypassUI() {
+        clearActiveTimers();
+        activeTask.running = false;
+        els.startBypassBtn.disabled = false;
+        els.taskPanel.classList.add('hidden');
+        els.resultBox.classList.add('hidden');
+        els.countdownActions.classList.add('hidden');
+        els.countdownAdWrap.classList.add('hidden');
+        els.urlInput.value = '';
+        updateProviderUI('');
+        els.urlInput.focus();
+      }
+
+      /* =====================================================================
+         HISTORY MANAGEMENT
+      ===================================================================== */
+      function addHistoryItem(item) {
+        historyItems = historyItems.filter(h => h.sourceUrl !== item.sourceUrl);
+        historyItems.unshift(item);
+        if (historyItems.length > 15) historyItems.pop();
+        saveHistory();
+        renderHistory();
+      }
+
+      function formatRelativeTime(ts) {
+        const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+
+      function renderHistory() {
+        els.clearHistoryBtn.classList.toggle('hidden', historyItems.length === 0);
+
+        if (!historyItems.length) {
+          els.historyList.innerHTML = `
+            <div class="p-6 rounded-2xl border border-dashed border-slate-300 dark:border-white/15 text-center text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              No bypass history yet. Process your first link in the <strong>Main Bypass</strong> tab!
+            </div>
+          `;
+          return;
+        }
+
+        els.historyList.innerHTML = '';
+        historyItems.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'p-3.5 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 space-y-2 hover:border-emerald-500/40 transition-colors';
+          const badgeStyle = BADGE_STYLES[item.providerColor] || BADGE_STYLES.slate;
+
+          row.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border ${badgeStyle}"></span>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400"></span>
+            </div>
+            <p class="text-xs font-mono text-slate-700 dark:text-slate-200 truncate"></p>
+            <div class="flex items-center gap-1.5 pt-1">
+              <button type="button" data-action="rerun" class="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 transition-colors">Run Again</button>
+              <button type="button" data-action="copy" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-white/10 hover:bg-slate-200/70 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 transition-colors">Copy</button>
+            </div>
+          `;
+
+          const spans = row.querySelectorAll('span');
+          spans[0].textContent = item.providerName;
+          spans[1].textContent = formatRelativeTime(item.timestamp);
+          const p = row.querySelector('p');
+          p.textContent = item.sourceUrl;
+          p.title = item.sourceUrl;
+
+          row.querySelector('[data-action="rerun"]').addEventListener('click', () => {
+            switchTab('bypass');
+            els.urlInput.value = item.sourceUrl;
+            updateProviderUI(item.sourceUrl);
+            handleBypassSubmit(item.sourceUrl);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+
+          row.querySelector('[data-action="copy"]').addEventListener('click', () => {
+            copyToClipboard(item.relayUrl, 'Relay link copied from history!');
+          });
+
+          els.historyList.appendChild(row);
+        });
+      }
+
+      /* =====================================================================
+         LOOTLABS DECODER (_llDecode Base64 + 5-Byte XOR)
+      ===================================================================== */
+      function llDecode(encoded) {
+        try {
+          let cleaned = String(encoded || '').trim();
+          if (cleaned.startsWith('r:')) cleaned = cleaned.slice(2).trim();
+          if (!cleaned) return { ok: false, error: 'Token cannot be empty.' };
+
+          const raw = atob(cleaned);
+          if (raw.length <= 5) return { ok: false, error: 'Token is too short (minimum 6 bytes after Base64).' };
+
+          const key = raw.substring(0, 5);
+          const data = raw.substring(5);
+          let out = '';
+          for (let i = 0; i < data.length; i++) {
+            out += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % 5));
+          }
+
+          return { ok: true, url: out, key, isValidUrl: /^https?:\/\//i.test(out) };
+        } catch {
+          return { ok: false, error: 'Invalid Base64 format. Make sure you copied the full token.' };
+        }
+      }
+
+      function llEncodeDemo(url, key = 'LG510') {
+        let xorOut = '';
+        for (let i = 0; i < url.length; i++) {
+          xorOut += String.fromCharCode(url.charCodeAt(i) ^ key.charCodeAt(i % 5));
+        }
+        return 'r:' + btoa(key + xorOut);
+      }
+
+      let lastDecodedUrl = '';
+
+      function handleDecodeToken() {
+        const res = llDecode(els.tokenInput.value);
+        els.decoderResult.classList.remove('hidden');
+
+        if (!res.ok) {
+          lastDecodedUrl = '';
+          els.decoderResult.className = 'p-4 sm:p-5 rounded-2xl border border-rose-500/35 bg-rose-500/10 space-y-2';
+          els.decoderResultLabel.className = 'text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300';
+          els.decoderResultLabel.textContent = 'Decode Failed';
+          els.decoderKeyBadge.classList.add('hidden');
+          els.decoderOutputText.textContent = res.error;
+          els.decoderOutputActions.classList.add('hidden');
+          showToast(res.error, 'error');
+          return;
+        }
+
+        lastDecodedUrl = res.url;
+        els.decoderResult.className = res.isValidUrl
+          ? 'p-4 sm:p-5 rounded-2xl border border-emerald-500/35 bg-emerald-500/10 space-y-3'
+          : 'p-4 sm:p-5 rounded-2xl border border-amber-500/35 bg-amber-500/10 space-y-3';
+        els.decoderResultLabel.className = res.isValidUrl
+          ? 'text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300'
+          : 'text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300';
+        els.decoderResultLabel.textContent = res.isValidUrl
+          ? 'Destination URL Decoded Successfully'
+          : 'Decoded Output (Plain Text)';
+        els.decoderKeyBadge.textContent = `XOR Key: ${res.key}`;
+        els.decoderKeyBadge.classList.remove('hidden');
+        els.decoderOutputText.textContent = res.url;
+        els.decoderOutputActions.classList.toggle('hidden', !res.isValidUrl);
+        showToast(res.isValidUrl ? 'LootLabs token decoded!' : 'Token decoded (not an HTTP/HTTPS URL).', res.isValidUrl ? 'success' : 'warning');
+      }
+
+      /* =====================================================================
+         SUPPORTED DOMAINS DIRECTORY
+      ===================================================================== */
+      let selectedCategory = 'all';
+
+      function initDomainsDirectory() {
+        const totalDomains = PROVIDER_CATEGORIES.reduce((sum, c) => sum + c.domains.length, 0);
+        els.domainCountBadge.textContent = String(totalDomains);
+
+        const chips = [{ id: 'all', name: 'All Categories' }, ...PROVIDER_CATEGORIES.map(c => ({ id: c.id, name: c.name }))];
+        els.categoryFilterBar.innerHTML = '';
+
+        chips.forEach(chip => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.cat = chip.id;
+          btn.textContent = chip.name;
+          btn.addEventListener('click', () => {
+            selectedCategory = chip.id;
+            renderDomainsGrid();
+          });
+          els.categoryFilterBar.appendChild(btn);
+        });
+
+        renderDomainsGrid();
+      }
+
+      function renderDomainsGrid() {
+        els.categoryFilterBar.querySelectorAll('button').forEach(btn => {
+          const active = btn.dataset.cat === selectedCategory;
+          btn.className = active
+            ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-cyan-500 text-white shadow-sm transition-all'
+            : 'px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all';
+        });
+
+        const query = els.domainSearchInput.value.trim().toLowerCase();
+        els.domainsGrid.innerHTML = '';
+        let visibleCards = 0;
+
+        PROVIDER_CATEGORIES.forEach(cat => {
+          if (selectedCategory !== 'all' && cat.id !== selectedCategory) return;
+
+          const matchedDomains = query
+            ? cat.domains.filter(d => d.toLowerCase().includes(query) || cat.name.toLowerCase().includes(query))
+            : cat.domains;
+
+          if (!matchedDomains.length) return;
+          visibleCards++;
+
+          const card = document.createElement('div');
+          card.className = 'p-5 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 space-y-3';
+          const badgeStyle = BADGE_STYLES[cat.badgeColor] || BADGE_STYLES.slate;
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${escapeHtml(cat.name)}</h3>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeStyle}">${matchedDomains.length} domains</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${escapeHtml(cat.description)}</p>
+            <div class="flex flex-wrap gap-1.5 pt-1"></div>
+          `;
+
+          const list = card.querySelector('div.flex-wrap');
+          matchedDomains.forEach(domain => {
+            const tag = document.createElement('button');
+            tag.type = 'button';
+            tag.title = `Use ${domain}`;
+            tag.className = 'px-2.5 py-1 rounded-lg text-[11px] font-mono font-medium bg-white dark:bg-black/40 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 transition-colors';
+            tag.textContent = domain;
+            tag.addEventListener('click', () => {
+              switchTab('bypass');
+              els.urlInput.value = `https://${domain}/`;
+              updateProviderUI(els.urlInput.value);
+              els.urlInput.focus();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              showToast(`Loaded ${domain} into Main Bypass.`, 'info');
+            });
+            list.appendChild(tag);
+          });
+
+          els.domainsGrid.appendChild(card);
+        });
+
+        if (visibleCards === 0) {
+          els.domainsGrid.innerHTML = `
+            <div class="md:col-span-2 p-8 rounded-2xl border border-dashed border-slate-300 dark:border-white/15 text-center text-sm text-slate-500 dark:text-slate-400">
+              No domains matched "<strong>${escapeHtml(query)}</strong>".
+            </div>
+          `;
+        }
+      }
+
+      /* =====================================================================
+         SETTINGS TAB UI SYNC
+      ===================================================================== */
+      function setSwitchState(btn, checked) {
+        btn.setAttribute('aria-checked', String(checked));
+        const knob = btn.querySelector('.switch-knob');
+        if (checked) {
+          btn.classList.add('bg-emerald-600');
+          btn.classList.remove('bg-slate-300', 'dark:bg-white/15');
+          knob.style.transform = 'translateX(20px)';
+        } else {
+          btn.classList.remove('bg-emerald-600');
+          btn.classList.add('bg-slate-300', 'dark:bg-white/15');
+          knob.style.transform = 'translateX(0px)';
+        }
+      }
+
+      function syncSettingsUI() {
+        setSwitchState(els.settingNewTab, settings.openNewTab);
+        els.settingEndpoint.value = settings.endpoint;
+        els.settingTheme.value = settings.theme;
+        syncHeroPills();
+      }
+
+      /* =====================================================================
+         EVENT LISTENERS
+      ===================================================================== */
+      els.urlInput.addEventListener('input', () => updateProviderUI(els.urlInput.value));
+
+      els.clearUrlBtn.addEventListener('click', () => {
+        els.urlInput.value = '';
+        updateProviderUI('');
+        els.urlInput.focus();
+      });
+
+      els.pasteUrlBtn.addEventListener('click', async () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              els.urlInput.value = text.trim();
+              updateProviderUI(els.urlInput.value);
+              showToast('Link pasted from clipboard!', 'success');
+              return;
+            }
+          }
+        } catch {}
+        els.urlInput.focus();
+        showToast('Press Ctrl+V (or long-press Paste) inside the URL field.', 'info');
+      });
+
+      document.querySelectorAll('.sample-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          els.urlInput.value = btn.dataset.sample;
+          updateProviderUI(els.urlInput.value);
+          els.urlInput.focus();
+        });
+      });
+
+      els.bypassForm.addEventListener('submit', e => {
+        e.preventDefault();
+        handleBypassSubmit(els.urlInput.value);
+      });
+
+      // Captcha Modal Controls
+      els.closeCaptchaBtn.addEventListener('click', () => closeCaptchaGate(true));
+      els.captchaModal.addEventListener('click', e => {
+        if (e.target === els.captchaModal) closeCaptchaGate(true);
+      });
+
+      // VIP Modal Controls
+      els.openVipModalBtn.addEventListener('click', openVipModal);
+      document.querySelectorAll('.open-vip-trigger').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (captchaState.open) closeCaptchaGate(false);
+          closeLimitModal();
+          openVipModal();
+        });
+      });
+      els.closeVipModalBtn.addEventListener('click', closeVipModal);
+      els.vipModal.addEventListener('click', e => {
+        if (e.target === els.vipModal) closeVipModal();
+      });
+
+      // Limit Modal Controls
+      els.closeLimitModalBtn.addEventListener('click', closeLimitModal);
+      els.limitModal.addEventListener('click', e => {
+        if (e.target === els.limitModal) closeLimitModal();
+      });
+      els.limitEnterVipBtn.addEventListener('click', () => {
+        closeLimitModal();
+        openVipModal();
+      });
+
+      // VIP Key Server Verification Submit
+      els.vipKeyForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const key = els.vipKeyInput.value.trim();
+        if (!key) {
+          setVipFeedback('warning', 'Please enter your VIP license key first.');
+          return;
+        }
+
+        els.vipSubmitBtn.disabled = true;
+        els.vipSubmitBtn.textContent = 'Verifying on server...';
+        setVipFeedback('', '');
+
+        try {
+          const result = await verifyVipKeyOnServer(key);
+          if (result.valid) {
+            vipState = {
+              active: true,
+              token: result.token,
+              tier: result.tier,
+              expiresAt: result.expiresAt
+            };
+            saveVipState();
+            applyVipUI();
+            els.vipKeyInput.value = '';
+            closeVipModal();
+            showToast('VIP Activated! Unlimited bypasses & ad-free mode enabled.', 'success');
+          } else {
+            setVipFeedback('error', result.message);
+          }
+        } catch {
+          setVipFeedback('warning', 'Verification server (/api/verify-vip) is not connected yet. Deploy your backend endpoint or buy a key via Discord.');
+        } finally {
+          els.vipSubmitBtn.disabled = false;
+          els.vipSubmitBtn.textContent = 'Verify & Activate VIP Key';
+        }
+      });
+
+      els.deactivateVipBtn.addEventListener('click', () => {
+        vipState = { active: false, token: '', tier: '', expiresAt: 0 };
+        saveVipState();
+        applyVipUI();
+        closeVipModal();
+        showToast('Signed out of VIP. Returned to Free Plan (2 uses/day).', 'info');
+      });
+
+      // Task Panel Buttons
+      els.openDestBtn.addEventListener('click', () => {
+        if (!activeTask.relayUrl) return;
+        if (settings.openNewTab) {
+          window.open(activeTask.relayUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          window.location.href = activeTask.relayUrl;
+        }
+      });
+
+      els.copyDestBtn.addEventListener('click', () => {
+        if (activeTask.relayUrl) copyToClipboard(activeTask.relayUrl, 'Destination link copied!');
+      });
+
+      els.resetBypassBtn.addEventListener('click', resetBypassUI);
+
+      // Technical Details Accordion
+      els.techDetailsToggle.addEventListener('click', () => {
+        const isOpen = els.techDetailsContent.dataset.open === 'true';
+        els.techDetailsContent.dataset.open = String(!isOpen);
+        els.techDetailsToggle.setAttribute('aria-expanded', String(!isOpen));
+        els.techDetailsChevron.style.transform = !isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+      });
+
+      // Decoder Controls
+      els.decodeTokenBtn.addEventListener('click', handleDecodeToken);
+      els.clearTokenBtn.addEventListener('click', () => {
+        els.tokenInput.value = '';
+        els.decoderResult.classList.add('hidden');
+        lastDecodedUrl = '';
+      });
+      els.loadDemoTokenBtn.addEventListener('click', () => {
+        els.tokenInput.value = llEncodeDemo('https://github.com/sample-lootlabs-decoded-destination');
+        handleDecodeToken();
+      });
+      els.openDecodedBtn.addEventListener('click', () => {
+        if (lastDecodedUrl) window.open(lastDecodedUrl, '_blank', 'noopener,noreferrer');
+      });
+      els.copyDecodedBtn.addEventListener('click', () => {
+        if (lastDecodedUrl) copyToClipboard(lastDecodedUrl, 'Decoded URL copied!');
+      });
+
+      // Domain Search
+      els.domainSearchInput.addEventListener('input', renderDomainsGrid);
+
+      // Settings Tab Controls
+      els.settingNewTab.addEventListener('click', () => {
+        settings.openNewTab = !settings.openNewTab;
+        saveSettings();
+        syncSettingsUI();
+      });
+
+      els.settingEndpoint.addEventListener('change', () => {
+        settings.endpoint = els.settingEndpoint.value === 'bypass' ? 'bypass' : 'wait';
+        saveSettings();
+        syncSettingsUI();
+      });
+
+      els.settingTheme.addEventListener('change', () => {
+        settings.theme = els.settingTheme.value;
+        saveSettings();
+        applyTheme(settings.theme);
+      });
+
+      els.resetSettingsBtn.addEventListener('click', () => {
+        settings = { ...DEFAULT_SETTINGS };
+        saveSettings();
+        applyTheme(settings.theme);
+        syncSettingsUI();
+        showToast('Settings restored to defaults.', 'info');
+      });
+
+      els.clearHistoryBtn.addEventListener('click', () => {
+        historyItems = [];
+        saveHistory();
+        renderHistory();
+        showToast('Bypass history cleared.', 'info');
+      });
+
+      // Escape key closes modals
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          if (captchaState.open) closeCaptchaGate(true);
+          if (!els.vipModal.classList.contains('hidden')) closeVipModal();
+          if (!els.limitModal.classList.contains('hidden')) closeLimitModal();
+        }
+      });
+
+      /* =====================================================================
+         INITIALIZATION
+      ===================================================================== */
+      applyTheme(settings.theme);
+      applyVipUI();
+      syncSettingsUI();
+      switchTab('bypass');
+      renderHistory();
+      initDomainsDirectory();
+    })();
+  </script>
+</body>
+</html>
